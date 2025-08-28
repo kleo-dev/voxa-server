@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 anyhow = "1.0.99"
 wasmtime = "36.0.2"
+wasmtime-wasi = { version = "36.0.2", features = ["preview1"] }

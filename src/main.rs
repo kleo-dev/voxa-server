@@ -1,13 +1,15 @@
 use wasmtime::*;
+use wasmtime_wasi::WasiCtxBuilder;
 
 fn load_plugin(wasm_path: &str) -> anyhow::Result<()> {
     let engine = Engine::default();
-    let mut linker = Linker::new(&engine);
-    let mut store = Store::new(&engine, ());
-
+    let mut store = Store::new(&engine, WasiCtxBuilder::new().inherit_stdout().inherit_stderr().build_p1());
     let module = Module::from_file(&engine, wasm_path)?;
-    let instance = linker.instantiate(&mut store, &module)?;
+    let mut linker = Linker::new(&engine);
 
+    wasmtime_wasi::preview1::add_to_linker_sync(&mut linker, |s| s)?;
+
+    let instance = linker.instantiate(&mut store, &module)?;
     let init = instance.get_typed_func::<(), ()>(&mut store, "init")?;
     init.call(&mut store, ())?;
 
