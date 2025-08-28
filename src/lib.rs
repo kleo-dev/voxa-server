@@ -1,19 +1,20 @@
-pub trait Plugin {
+pub mod loader;
+
+pub trait PluginApi {
     fn init(&mut self);
 }
 
 #[macro_export]
 macro_rules! export_plugin {
     ($plugin_type:ty) => {
-        static mut PLUGIN: Option<$plugin_type> = None;
+        static PLUGIN: std::sync::Mutex<Option<$plugin_type>> = std::sync::Mutex::new(None);
 
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn init() {
-            unsafe {
-                PLUGIN = Some(<$plugin_type>::default());
-                if let Some(plugin) = PLUGIN.as_mut() {
-                    plugin.init();
-                }
+            let mut plugin = PLUGIN.lock().unwrap();
+            *plugin = Some(<$plugin_type>::default());
+            if let Some(plugin) = plugin.as_mut() {
+                plugin.init();
             }
         }
     };

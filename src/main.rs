@@ -1,22 +1,12 @@
-use wasmtime::*;
-use wasmtime_wasi::WasiCtxBuilder;
-
-fn load_plugin(wasm_path: &str) -> anyhow::Result<()> {
-    let engine = Engine::default();
-    let mut store = Store::new(&engine, WasiCtxBuilder::new().inherit_stdout().inherit_stderr().build_p1());
-    let module = Module::from_file(&engine, wasm_path)?;
-    let mut linker = Linker::new(&engine);
-
-    wasmtime_wasi::preview1::add_to_linker_sync(&mut linker, |s| s)?;
-
-    let instance = linker.instantiate(&mut store, &module)?;
-    let init = instance.get_typed_func::<(), ()>(&mut store, "init")?;
-    init.call(&mut store, ())?;
-
-    Ok(())
-}
+use voxa_server::PluginApi;
 
 fn main() -> anyhow::Result<()> {
-    load_plugin("plugins/test_plugin.wasm")?;
+    let mut plugins = Vec::new();
+    voxa_server::loader::load_plugins(&mut plugins, std::path::Path::new("./plugins"));
+
+    for plugin in &mut plugins {
+        plugin.init();
+    }
+
     Ok(())
 }
