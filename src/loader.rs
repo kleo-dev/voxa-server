@@ -3,9 +3,9 @@ use std::path::Path;
 use wasmtime::*;
 use wasmtime_wasi::WasiCtxBuilder;
 
-use crate::PluginInstance;
+use crate::{PluginInstance, vfs};
 
-pub fn load_plugin(wasm_path: &str) -> anyhow::Result<PluginInstance> {
+pub fn load_plugin(wasm_path: &Path) -> anyhow::Result<PluginInstance> {
     let engine = Engine::default();
     let mut store = Store::new(
         &engine,
@@ -23,14 +23,15 @@ pub fn load_plugin(wasm_path: &str) -> anyhow::Result<PluginInstance> {
     Ok(PluginInstance::Wasm(instance, store))
 }
 
-pub fn load_plugins(arr: &mut Vec<PluginInstance>, path: &Path) {
+pub fn load_plugins(arr: &mut Vec<PluginInstance>, path: &Path) -> crate::Result<()> {
+    vfs::dir(path)?;
     if path.is_dir() {
-        for entry in std::fs::read_dir(path).unwrap() {
-            let entry = entry.unwrap();
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("wasm") {
                 println!("Loading plugin: {:?}", path);
-                match load_plugin(path.to_str().unwrap()) {
+                match load_plugin(&path) {
                     Ok(plugin) => {
                         arr.push(plugin);
                     }
@@ -41,4 +42,6 @@ pub fn load_plugins(arr: &mut Vec<PluginInstance>, path: &Path) {
     } else {
         eprintln!("{:?} is not a directory", path);
     }
+
+    Ok(())
 }
