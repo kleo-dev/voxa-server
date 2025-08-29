@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use wasmtime::*;
+use wasmtime::{Engine, Linker, Module, Store};
 use wasmtime_wasi::WasiCtxBuilder;
 
 use crate::{PluginInstance, vfs};

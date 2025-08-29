@@ -10,11 +10,14 @@ pub use anyhow::Result;
 
 use crate::plugin::{Plugin, PluginInstance};
 
-pub struct ServerConfig {}
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ServerConfig {
+    port: u16,
+}
 
 impl Default for ServerConfig {
     fn default() -> Self {
-        Self {}
+        Self { port: 7080 }
     }
 }
 
