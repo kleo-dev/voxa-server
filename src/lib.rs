@@ -1,41 +1,20 @@
 use std::path::Path;
 
 #[cfg(feature = "loader")]
-use wasmtime::{Instance, Store};
-#[cfg(feature = "loader")]
-use wasmtime_wasi::preview1::WasiP1Ctx;
-
-#[cfg(feature = "loader")]
 pub mod loader;
 pub mod macros;
+pub mod plugin;
 pub mod vfs;
 
 pub use anyhow::Result;
 
-pub trait PluginApi {
-    fn init(&mut self);
-}
+use crate::plugin::{Plugin, PluginInstance};
 
 pub struct ServerConfig {}
 
-pub enum PluginInstance {
-    #[cfg(feature = "loader")]
-    Wasm(Instance, Store<WasiP1Ctx>),
-    StatiC(Box<dyn PluginApi>),
-}
-
-impl PluginApi for PluginInstance {
-    fn init(&mut self) {
-        match self {
-            #[cfg(feature = "loader")]
-            PluginInstance::Wasm(instance, store) => {
-                let init = instance
-                    .get_typed_func::<(), ()>(&mut *store, "init")
-                    .unwrap();
-                init.call(store, ()).unwrap();
-            }
-            PluginInstance::StatiC(plugin) => plugin.init(),
-        }
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {}
     }
 }
 
@@ -54,11 +33,5 @@ impl ServerConfig {
         }
 
         Ok(())
-    }
-}
-
-impl Default for ServerConfig {
-    fn default() -> Self {
-        Self {}
     }
 }

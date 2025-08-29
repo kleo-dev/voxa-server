@@ -1,9 +1,9 @@
-use voxa_server::{PluginApi, export_plugin};
+use voxa_server::{export_plugin, plugin::Plugin};
 
 #[derive(Default)]
 pub struct MyPlugin;
 
-impl PluginApi for MyPlugin {
+impl Plugin for MyPlugin {
     fn init(&mut self) {
         println!("MyPlugin initialized!");
     }
