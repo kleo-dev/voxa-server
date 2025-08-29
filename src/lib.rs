@@ -5,10 +5,15 @@ use wasmtime_wasi::preview1::WasiP1Ctx;
 
 #[cfg(feature = "loader")]
 pub mod loader;
+pub mod macros;
+
+pub use anyhow::Result;
 
 pub trait PluginApi {
     fn init(&mut self);
 }
+
+pub struct ServerConfig {}
 
 pub enum PluginInstance {
     #[cfg(feature = "loader")]
@@ -31,18 +36,26 @@ impl PluginApi for PluginInstance {
     }
 }
 
-#[macro_export]
-macro_rules! export_plugin {
-    ($plugin_type:ty) => {
-        static PLUGIN: std::sync::Mutex<Option<$plugin_type>> = std::sync::Mutex::new(None);
+impl ServerConfig {
+    pub fn start(&self) -> Result<()> {
+        let mut plugins: Vec<PluginInstance> = Vec::new();
+        #[cfg(feature = "loader")]
+        loader::load_plugins(&mut plugins, std::path::Path::new("./plugins"));
 
-        #[unsafe(no_mangle)]
-        pub extern "C" fn init() {
-            let mut plugin = PLUGIN.lock().unwrap();
-            *plugin = Some(<$plugin_type>::default());
-            if let Some(plugin) = plugin.as_mut() {
-                plugin.init();
-            }
+        self.start_with(plugins)
+    }
+
+    pub fn start_with(&self, mut plugins: Vec<PluginInstance>) -> Result<()> {
+        for plugin in &mut plugins {
+            plugin.init();
         }
-    };
+
+        Ok(())
+    }
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {}
+    }
 }
