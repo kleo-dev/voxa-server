@@ -3,7 +3,11 @@ use std::path::Path;
 use wasmtime::{Engine, Linker, Module, Store};
 use wasmtime_wasi::WasiCtxBuilder;
 
-use crate::{PluginInstance, vfs};
+use crate::{PluginInstance, logger, vfs};
+
+logger! {
+    const LOGGER "Loader"
+}
 
 pub fn load_plugin(wasm_path: &Path) -> anyhow::Result<PluginInstance> {
     let engine = Engine::default();
@@ -30,17 +34,17 @@ pub fn load_plugins(arr: &mut Vec<PluginInstance>, path: &Path) -> crate::Result
             let entry = entry?;
             let path = entry.path();
             if path.extension().and_then(|s| s.to_str()) == Some("wasm") {
-                println!("Loading plugin: {:?}", path);
+                LOGGER.info(format!("Loading plugin: {:?}", path));
                 match load_plugin(&path) {
                     Ok(plugin) => {
                         arr.push(plugin);
                     }
-                    Err(e) => eprintln!("Failed to load plugin {:?}: {}", path, e),
+                    Err(e) => LOGGER.error(format!("Failed to load plugin {:?}: {}", path, e)),
                 }
             }
         }
     } else {
-        eprintln!("{:?} is not a directory", path);
+        LOGGER.error(format!("{:?} is not a directory", path));
     }
 
     Ok(())

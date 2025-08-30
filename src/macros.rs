@@ -13,3 +13,24 @@ macro_rules! export_plugin {
         }
     };
 }
+
+#[macro_export]
+macro_rules! logger {
+    (const $i:ident $name:expr) => {
+        const $i: once_cell::sync::Lazy<$crate::logger::Logger> =
+            once_cell::sync::Lazy::new(|| $crate::logger::Logger::new($name));
+    };
+
+    ($i:ident $name:expr) => {
+        const $i: once_cell::sync::Lazy<$crate::logger::Logger> =
+            once_cell::sync::Lazy::new(|| $crate::logger::Logger::new($name));
+    };
+
+    (const $name:expr) => {
+        once_cell::sync::Lazy::new(|| $crate::logger::Logger::new($name))
+    };
+
+    ($name:expr) => {
+        $crate::logger::Logger::new($name)
+    };
+}
