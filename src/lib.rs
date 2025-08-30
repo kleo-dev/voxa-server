@@ -69,11 +69,11 @@ impl Server {
         }
 
         // Start server
-        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.config.port));
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.config.port))?;
         self.logger
-            .info(format!("Server listening 0.0.0.0:{}", self.config.port));
+            .info(format!("Server listening at 0.0.0.0:{}", self.config.port));
 
-        for stream in listener?.incoming() {
+        for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
                     self.logger
