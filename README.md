@@ -4,51 +4,30 @@ Self host your voxa community server with customizable plugins
 
 # Protocol
 
-The protocol involves mixing simple principles with complex principles.
-
-1. If the client is online then the client will connect to all the servers, not just the "current server".
-2. If a server sends a `Message` the client processes it as a notification.
-3. A `Message` should only be sent to the client if the server knows that the user that the client is wrapping has been on this server before the messages were present, otherwise it will send a `InitialMessage`.
+1. When the client is running in the background or windowed, it's connected to the [Voxa Cloud server](#voxa-cloud)
 
 ## Handshake
 
-Client -> Connect -> Server
+Client -> Cloud: `{ GenerateServerAuth: {} }`
 
-Server -> Public RSA -> Client
+Cloud -> Cloud: `{ ServerAuth: { auth: <Client-Temp-Auth> } }`
 
-Client -> RSA encrypted AES key -> Server
+Client -> Server: Connect
 
-Client -> (AES) `{ session_id: <Session-Id> }` -> Server
+Client -> Server: `{ auth: <Client-Temp-Auth> }`
 
-Server -> Validate Session-Id via HTTP -> Voxa cloud
+Server -> Cloud: `GET /validate-auth?auth=<Client-Temp-Auth>`
 
-Server -> (AES) `{ id: 0, result: "ok", session_id: <Server-Session> }` -> Client
+Cloud -> Server: `{ 200 OK { username: <Username>, name: <Name>, id: <User-Id> } }`
 
 ## Sending a message
 
-Client -> (AES) `{ id: 10, SendMessage: { content: "This is a test", channel: <Channel-Id> } }` -> Server
+Client -> Server: `{ SendMessage: { content: <Message> } }`
 
-Server -> (AES) `{ id: 10, result: "ok" }` -> Client
+Server -> Cloud: `POST /message { content: <Message>, author: <User-Id> }`
 
-## Receiving a message
+Cloud -> Client(s): `{ Message: { content: <Message>, author: <User-Id> } }`
 
-Server -> (AES) `{ id: 23, Message: { content: "This is a test", author: <User-Id>, channel: <Channel-Id> } }` -> Client
+# Voxa Cloud
 
-Client -> (AES) `{ id: 23, result: "ok" }` -> Server
-
-## Sending and receiving voice chat
-
-Client -> (AES) `{ ConnectVoice: { channel: <Channel-Id> } }` -> Server
-
-Client -> (AES) `{ VoiceData: [ <Voice-Data> ] }` -> Server
-
-Server -> (AES) `{ <User-Id>: [ <Voice-Data> ] }` -> Client
-
-Client -> (AES) `{ DisconnectVoice: [] }` -> Server
-
-## Edge cases
-
-- **Client closes TCP prematurely on voice chat**: Server should handle the voice disconnecting on it's own.
-- **Server disconnects Client from voice chat**: In the case that a Server needs to disconnect a Client, the server will send the `DisconnectVoice` method to the Client to notify that any further `VoiceData` won't be processed.
-- **Invalid or outdated protocol**: Both Server and Client should check for a update and update if `auto_update` is enabled, it's important to keep the server always updated.
-- **`Message` cannot be sent at the moment**: The server will sent after the next [Handshake](#handshake)
+The voxa cloud server is the main auth and notification handler.
