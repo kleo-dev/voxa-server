@@ -13,6 +13,7 @@ pub mod vfs;
 pub use anyhow::Result;
 
 use crate::plugin::{Plugin, PluginInstance};
+pub use once_cell;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct ServerConfig {
@@ -71,10 +72,6 @@ impl Server {
         let listener = TcpListener::bind(format!("0.0.0.0:{}", self.config.port));
         self.logger
             .info(format!("Server listening 0.0.0.0:{}", self.config.port));
-        self.logger
-            .warn(format!("Server listening 0.0.0.0:{}", self.config.port));
-        self.logger
-            .error(format!("Server listening 0.0.0.0:{}", self.config.port));
 
         for stream in listener?.incoming() {
             match stream {

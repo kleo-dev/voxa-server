@@ -1,11 +1,15 @@
-use voxa_server::{export_plugin, plugin::Plugin};
+use voxa_server::{export_plugin, logger, plugin::Plugin};
+
+logger! {
+    const LOGGER "My Plugin"
+}
 
 #[derive(Default)]
 pub struct MyPlugin;
 
 impl Plugin for MyPlugin {
     fn init(&mut self) {
-        println!("MyPlugin initialized!");
+        LOGGER.info("MyPlugin initialized!");
     }
 }
 

@@ -28,6 +28,7 @@ pub fn load_plugin(wasm_path: &Path) -> anyhow::Result<PluginInstance> {
 }
 
 pub fn load_plugins(arr: &mut Vec<PluginInstance>, path: &Path) -> crate::Result<()> {
+    LOGGER.info("Loading plugins");
     vfs::dir(path)?;
     if path.is_dir() {
         for entry in std::fs::read_dir(path)? {

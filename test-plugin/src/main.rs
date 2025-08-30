@@ -1,9 +1,14 @@
 use std::path::PathBuf;
-use voxa_server::plugin::PluginInstance;
+
+use voxa_server::{ServerConfig, plugin::PluginInstance, vfs};
 
 fn main() -> voxa_server::Result<()> {
-    let root = PathBuf::from("../");
-    let config = voxa_server::ServerConfig::default();
-    let plugin = test_plugin::MyPlugin::default();
-    config.start_with(vec![PluginInstance::Static(Box::new(plugin))], &root)
+    let root = PathBuf::from("./");
+    let config: ServerConfig = vfs::read_config(&root.join("config.json"))?;
+    let mut server = config.build(&root);
+    server.add_plugin(PluginInstance::Static(Box::new(
+        test_plugin::MyPlugin::default(),
+    )));
+    server.run()?;
+    Ok(())
 }
