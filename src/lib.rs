@@ -11,6 +11,7 @@ pub mod plugin;
 pub mod vfs;
 
 pub use anyhow::Result;
+use tungstenite::accept;
 
 use crate::plugin::{Plugin, PluginInstance};
 pub use once_cell;
@@ -24,7 +25,6 @@ pub struct Server {
     plugins: Vec<PluginInstance>,
     root: PathBuf,
     config: ServerConfig,
-    logger: logger::Logger,
 }
 
 impl Default for ServerConfig {
@@ -40,12 +40,13 @@ impl ServerConfig {
 }
 
 impl Server {
+    logger!(LOGGER "Server");
+
     pub fn new(root: &Path) -> Self {
         Self {
             plugins: Vec::new(),
             root: root.to_path_buf(),
             config: ServerConfig::default(),
-            logger: logger::Logger::new("Server"),
         }
     }
 
@@ -54,7 +55,6 @@ impl Server {
             plugins: Vec::new(),
             root: root.to_path_buf(),
             config,
-            logger: logger::Logger::new("Server"),
         }
     }
 
@@ -70,17 +70,19 @@ impl Server {
 
         // Start server
         let listener = TcpListener::bind(format!("0.0.0.0:{}", self.config.port))?;
-        self.logger
-            .info(format!("Server listening at 0.0.0.0:{}", self.config.port));
+        Self::LOGGER.info(format!("Server listening at 0.0.0.0:{}", self.config.port));
 
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
-                    self.logger
-                        .info(format!("New connection: {}", stream.peer_addr()?));
+                    Self::LOGGER.info(format!("New connection: {}", stream.peer_addr()?));
+                    let mut ws = accept(stream)?;
+
+                    let msg = ws.read()?;
+                    ws.send(msg)?;
                 }
                 Err(e) => {
-                    self.logger.error(format!("Connection failed: {}", e));
+                    Self::LOGGER.error(format!("Connection failed: {}", e));
                 }
             }
         }
