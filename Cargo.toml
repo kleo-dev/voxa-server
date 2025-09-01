@@ -12,5 +12,5 @@ serde_json = "1.0.143"
 tungstenite = "0.27.0"
 
 [features]
-default = ["loader"]
+default = []
 loader = ["libloading"]
