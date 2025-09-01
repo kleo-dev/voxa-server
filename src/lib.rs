@@ -1,5 +1,5 @@
 use std::{
-    net::TcpListener,
+    net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
     sync::{Arc, Mutex},
 };
@@ -14,7 +14,7 @@ pub mod vfs;
 pub use anyhow::Result;
 use tungstenite::accept;
 
-use crate::plugin::Plugin;
+use crate::plugin::DynPlugin;
 pub use once_cell;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -23,7 +23,7 @@ pub struct ServerConfig {
 }
 
 pub struct Server {
-    plugins: Mutex<Vec<Box<dyn Plugin>>>,
+    plugins: Mutex<Vec<DynPlugin>>,
     root: PathBuf,
     config: ServerConfig,
 }
@@ -79,14 +79,16 @@ impl Server {
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => {
-                    Self::LOGGER.info(format!("New connection: {}", stream.peer_addr()?));
-                    let mut ws = accept(stream)?;
-
-                    let msg = ws.read()?;
-                    ws.send(msg)?;
+                    std::thread::spawn({
+                        let srv = self.clone();
+                        move || match srv.handle_client(stream) {
+                            Ok(_) => {}
+                            Err(e) => Self::LOGGER.error(format!("Client handler failed: {e}")),
+                        }
+                    });
                 }
                 Err(e) => {
-                    Self::LOGGER.error(format!("Connection failed: {}", e));
+                    Self::LOGGER.error(format!("Connection failed: {e}"));
                 }
             }
         }
@@ -94,7 +96,16 @@ impl Server {
         Ok(())
     }
 
-    pub fn add_plugin(self: &Arc<Self>, plugin: Box<dyn Plugin>) {
+    pub fn add_plugin(self: &Arc<Self>, plugin: DynPlugin) {
         self.plugins.lock().unwrap().push(plugin);
+    }
+
+    fn handle_client(self: &Arc<Self>, stream: TcpStream) -> anyhow::Result<()> {
+        Self::LOGGER.info(format!("New connection: {}", stream.peer_addr()?));
+        let mut ws = accept(stream)?;
+
+        let msg = ws.read()?;
+        ws.send(msg)?;
+        Ok(())
     }
 }

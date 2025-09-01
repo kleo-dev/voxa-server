@@ -2,7 +2,7 @@
 macro_rules! export_plugin {
     ($p:expr) => {
         #[unsafe(no_mangle)]
-        pub extern "C" fn load_plugin() -> Box<dyn Plugin> {
+        pub extern "C" fn load_plugin() -> $crate::plugin::DynPlugin {
             $p
         }
     };

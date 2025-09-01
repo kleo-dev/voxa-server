@@ -2,22 +2,22 @@ use std::path::Path;
 
 use libloading::{Library, Symbol};
 
-use crate::{logger, plugin::Plugin, vfs};
+use crate::{logger, plugin::DynPlugin, vfs};
 
 logger! {
     const LOGGER "Loader"
 }
 
-pub fn load_plugin(path: &Path) -> anyhow::Result<Box<dyn Plugin>> {
+pub fn load_plugin(path: &Path) -> anyhow::Result<DynPlugin> {
     unsafe {
         LOGGER.info(format!("Loading plugin: {:?}", path));
         let lib = Library::new(path)?;
-        let func: Symbol<extern "C" fn() -> Box<dyn Plugin>> = lib.get(b"load_plugin").unwrap();
+        let func: Symbol<extern "C" fn() -> DynPlugin> = lib.get(b"load_plugin").unwrap();
         Ok(func())
     }
 }
 
-pub fn load_plugins(arr: &mut Vec<Box<dyn Plugin>>, path: &Path) -> crate::Result<()> {
+pub fn load_plugins(arr: &mut Vec<DynPlugin>, path: &Path) -> crate::Result<()> {
     LOGGER.info("Loading plugins");
     vfs::dir(path)?;
     if path.is_dir() {
