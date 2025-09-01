@@ -1,4 +1,5 @@
-use voxa_server::{export_plugin, logger, plugin::Plugin};
+use std::sync::Arc;
+use voxa_server::{Server, export_plugin, logger, plugin::Plugin};
 
 logger! {
     const LOGGER "My Plugin"
@@ -8,9 +9,9 @@ logger! {
 pub struct MyPlugin;
 
 impl Plugin for MyPlugin {
-    fn init(&mut self) {
+    fn init(&mut self, _server: &Arc<Server>) {
         LOGGER.info("MyPlugin initialized!");
     }
 }
 
-export_plugin!(MyPlugin);
+export_plugin!(Box::new(MyPlugin));
