@@ -1,4 +1,4 @@
-target
-plugins
+target/
+plugins/
 config.json
 /Cargo.lock
