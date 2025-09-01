@@ -12,7 +12,8 @@ pub mod plugin;
 pub mod vfs;
 
 pub use anyhow::Result;
-use tungstenite::accept;
+pub use tungstenite;
+use tungstenite::{WebSocket, accept};
 
 use crate::plugin::DynPlugin;
 pub use once_cell;
@@ -23,9 +24,10 @@ pub struct ServerConfig {
 }
 
 pub struct Server {
-    plugins: Mutex<Vec<DynPlugin>>,
     root: PathBuf,
     config: ServerConfig,
+    plugins: Mutex<Vec<DynPlugin>>,
+    clients: Mutex<Vec<Arc<Mutex<WebSocket<TcpStream>>>>>,
 }
 
 impl Default for ServerConfig {
@@ -48,6 +50,7 @@ impl Server {
             plugins: Mutex::new(Vec::new()),
             root: root.to_path_buf(),
             config: ServerConfig::default(),
+            clients: Mutex::new(Vec::new()),
         })
     }
 
@@ -56,6 +59,7 @@ impl Server {
             plugins: Mutex::new(Vec::new()),
             root: root.to_path_buf(),
             config,
+            clients: Mutex::new(Vec::new()),
         })
     }
 
@@ -102,10 +106,46 @@ impl Server {
 
     fn handle_client(self: &Arc<Self>, stream: TcpStream) -> anyhow::Result<()> {
         Self::LOGGER.info(format!("New connection: {}", stream.peer_addr()?));
-        let mut ws = accept(stream)?;
+        let ws = Arc::new(Mutex::new(accept(stream)?));
 
-        let msg = ws.read()?;
-        ws.send(msg)?;
+        self.clients.lock().unwrap().push(ws.clone());
+
+        loop {
+            let req = ws.lock().unwrap().read()?;
+
+            for plugin in self.plugins.lock().unwrap().iter_mut() {
+                plugin.on_request(&req, self);
+            }
+
+            if req.is_close() {
+                let mut clients = self.clients.lock().unwrap();
+
+                if let Some(i) = clients.iter().position(|v| Arc::ptr_eq(v, &ws)) {
+                    clients.remove(i);
+                }
+            }
+
+            for c in self.clients.lock().unwrap().iter_mut() {
+                self.wrap_err(&ws, c.lock().unwrap().send(req.clone()))?;
+            }
+        }
+
         Ok(())
+    }
+
+    /// When there is a error it removes the client
+    fn wrap_err<T, E>(
+        self: &Arc<Self>,
+        ws: &Arc<Mutex<WebSocket<TcpStream>>>,
+        res: std::result::Result<T, E>,
+    ) -> std::result::Result<T, E> {
+        if res.is_err() {
+            let mut clients = self.clients.lock().unwrap();
+            if let Some(i) = clients.iter().position(|v| Arc::ptr_eq(v, &ws)) {
+                clients.remove(i);
+            }
+        }
+
+        res
     }
 }
