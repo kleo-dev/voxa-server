@@ -69,7 +69,7 @@ impl Server {
 
         // Initialize plugins
         for plugin in self.plugins.lock().unwrap().iter_mut() {
-            plugin.init();
+            plugin.init(self);
         }
 
         // Start server
