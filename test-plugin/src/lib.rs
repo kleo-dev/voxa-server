@@ -13,4 +13,4 @@ impl Plugin for MyPlugin {
     }
 }
 
-export_plugin!(MyPlugin);
+export_plugin!(Box::new(MyPlugin));

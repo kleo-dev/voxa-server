@@ -1,6 +1,7 @@
 use std::{
     net::TcpListener,
     path::{Path, PathBuf},
+    sync::{Arc, Mutex},
 };
 
 #[cfg(feature = "loader")]
@@ -13,7 +14,7 @@ pub mod vfs;
 pub use anyhow::Result;
 use tungstenite::accept;
 
-use crate::plugin::{Plugin, PluginInstance};
+use crate::plugin::Plugin;
 pub use once_cell;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -22,7 +23,7 @@ pub struct ServerConfig {
 }
 
 pub struct Server {
-    plugins: Vec<PluginInstance>,
+    plugins: Mutex<Vec<Box<dyn Plugin>>>,
     root: PathBuf,
     config: ServerConfig,
 }
@@ -34,7 +35,7 @@ impl Default for ServerConfig {
 }
 
 impl ServerConfig {
-    pub fn build(self, root: &Path) -> Server {
+    pub fn build(self, root: &Path) -> Arc<Server> {
         Server::new_config(root, self)
     }
 }
@@ -42,29 +43,32 @@ impl ServerConfig {
 impl Server {
     logger!(LOGGER "Server");
 
-    pub fn new(root: &Path) -> Self {
-        Self {
-            plugins: Vec::new(),
+    pub fn new(root: &Path) -> Arc<Self> {
+        Arc::new(Self {
+            plugins: Mutex::new(Vec::new()),
             root: root.to_path_buf(),
             config: ServerConfig::default(),
-        }
+        })
     }
 
-    pub fn new_config(root: &Path, config: ServerConfig) -> Self {
-        Self {
-            plugins: Vec::new(),
+    pub fn new_config(root: &Path, config: ServerConfig) -> Arc<Self> {
+        Arc::new(Self {
+            plugins: Mutex::new(Vec::new()),
             root: root.to_path_buf(),
             config,
-        }
+        })
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(self: &Arc<Self>) -> Result<()> {
         // Load plugins
         #[cfg(feature = "loader")]
-        loader::load_plugins(&mut self.plugins, &self.root.join("./plugins"))?;
+        loader::load_plugins(
+            &mut *self.plugins.lock().unwrap(),
+            &self.root.join("./plugins"),
+        )?;
 
         // Initialize plugins
-        for plugin in &mut self.plugins {
+        for plugin in self.plugins.lock().unwrap().iter_mut() {
             plugin.init();
         }
 
@@ -90,7 +94,7 @@ impl Server {
         Ok(())
     }
 
-    pub fn add_plugin(&mut self, plugin: PluginInstance) {
-        self.plugins.push(plugin);
+    pub fn add_plugin(self: &Arc<Self>, plugin: Box<dyn Plugin>) {
+        self.plugins.lock().unwrap().push(plugin);
     }
 }
