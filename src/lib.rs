@@ -6,6 +6,7 @@ use std::{
 };
 
 pub mod client;
+pub mod database;
 #[cfg(feature = "loader")]
 pub mod loader;
 pub mod logger;
@@ -27,6 +28,7 @@ pub use once_cell;
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct ServerConfig {
     port: u16,
+    channels: Vec<types::data::Channel>,
 }
 
 #[allow(dead_code)]
@@ -35,11 +37,15 @@ pub struct Server {
     config: ServerConfig,
     plugins: Mutex<Vec<DynPlugin>>,
     clients: Mutex<HashSet<Client>>,
+    pub db: database::Database,
 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
-        Self { port: 7080 }
+        Self {
+            port: 7080,
+            channels: Vec::new(),
+        }
     }
 }
 
@@ -53,16 +59,12 @@ impl Server {
     logger!(LOGGER "Server");
 
     pub fn new(root: &Path) -> Arc<Self> {
-        Arc::new(Self {
-            plugins: Mutex::new(Vec::new()),
-            root: root.to_path_buf(),
-            config: ServerConfig::default(),
-            clients: Mutex::new(HashSet::new()),
-        })
+        Self::new_config(root, ServerConfig::default())
     }
 
     pub fn new_config(root: &Path, config: ServerConfig) -> Arc<Self> {
         Arc::new(Self {
+            db: database::Database::new(&config).unwrap(),
             plugins: Mutex::new(Vec::new()),
             root: root.to_path_buf(),
             config,
@@ -128,6 +130,15 @@ impl Server {
                         contents,
                     } => {
                         Self::LOGGER.info(format!("SendMessage to {channel_id}: {contents}"));
+                        self.wrap_err(
+                            &client,
+                            self.db.messages_db.insert(
+                                &channel_id,
+                                "idk",
+                                &contents,
+                                chrono::Utc::now().timestamp(),
+                            ),
+                        )?;
                     }
 
                     ClientMessage::EditMessage {

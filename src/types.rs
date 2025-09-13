@@ -77,7 +77,7 @@ pub mod data {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Channel {
-        pub id: usize,
+        pub id: String,
         pub name: String,
         pub kind: ChannelKind,
     }
