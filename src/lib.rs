@@ -20,7 +20,7 @@ pub use tungstenite;
 use crate::{
     client::Client,
     plugin::DynPlugin,
-    types::{ToClient, data},
+    types::{ClientMessage, WsMessage},
 };
 pub use once_cell;
 
@@ -122,23 +122,38 @@ impl Server {
         // The main req/res loop
         loop {
             match client.read()? {
-                Some(req) => {
-                    println!("Request: {:?}", req);
-                    for plugin in self.plugins.lock().unwrap().iter_mut() {
-                        plugin.on_request(&req, self);
+                Some(WsMessage::FromClient(req)) => match req {
+                    ClientMessage::SendMessage {
+                        channel_id,
+                        contents,
+                    } => {
+                        Self::LOGGER.info(format!("SendMessage to {channel_id}: {contents}"));
                     }
 
-                    for c in self.clients.lock().unwrap().iter() {
-                        if c == &client {
-                            self.wrap_err(
-                                &client,
-                                c.send(ToClient::Message(data::Message {
-                                    from: format!("Server"),
-                                    contents: format!("Hello"),
-                                })),
-                            )?;
-                        }
+                    ClientMessage::EditMessage {
+                        channel_id,
+                        message_id,
+                        new_contents,
+                    } => {
+                        Self::LOGGER.info(format!(
+                            "EditMessage {message_id} in {channel_id}: {new_contents}"
+                        ));
                     }
+
+                    ClientMessage::DeleteMessage {
+                        channel_id,
+                        message_id,
+                    } => {
+                        Self::LOGGER.info(format!("DeleteMessage {message_id} in {channel_id}"));
+                    }
+                },
+
+                Some(WsMessage::Binary(b)) => {
+                    Self::LOGGER.info(format!("Binary message: {b:?}"));
+                }
+
+                Some(WsMessage::String(s)) => {
+                    Self::LOGGER.info(format!("String message: {s}"));
                 }
 
                 None => {

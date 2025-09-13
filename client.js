@@ -2,7 +2,10 @@ setInterval(() => {
     const ws = new WebSocket('ws://localhost:7080');
 
     function sendMessage(message) {
-        ws.send(JSON.stringify({ type: 'send_message', params: message }));
+        ws.send(JSON.stringify({ type: 'send_message', params: {
+            channel_id: 'Hello',
+            contents: message
+        }}));
     }
 
     ws.onopen = () => {

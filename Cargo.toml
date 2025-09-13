@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.99"
+chrono = "0.4.42"
 libloading = { version = "0.8.8", optional = true }
 once_cell = "1.21.3"
 serde = { version = "1.0.219", features = ["serde_derive"] }

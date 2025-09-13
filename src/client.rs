@@ -7,7 +7,7 @@ use std::{
 use anyhow::Error;
 use tungstenite::{Message, Utf8Bytes, WebSocket, accept};
 
-use crate::types::{FromClient, ToClient, WsMessage};
+use crate::types::{ClientMessage, ServerMessage, WsMessage};
 
 #[derive(Clone)]
 pub struct Client(Arc<Mutex<WebSocket<TcpStream>>>);
@@ -37,7 +37,7 @@ impl Hash for Client {
 }
 
 impl Client {
-    pub fn read(&self) -> crate::Result<Option<WsMessage<FromClient>>> {
+    pub fn read(&self) -> crate::Result<Option<WsMessage<ClientMessage>>> {
         match self.0.lock().unwrap().read()? {
             Message::Text(t) => {
                 let v = t.to_string();
@@ -55,7 +55,7 @@ impl Client {
         }
     }
 
-    pub fn send(&self, m: ToClient) -> crate::Result<()> {
+    pub fn send(&self, m: ServerMessage) -> crate::Result<()> {
         self.0
             .lock()
             .unwrap()
