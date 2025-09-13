@@ -11,12 +11,17 @@ pub mod loader;
 pub mod logger;
 pub mod macros;
 pub mod plugin;
+pub mod types;
 pub mod vfs;
 
 pub use anyhow::Result;
 pub use tungstenite;
 
-use crate::{client::Client, plugin::DynPlugin};
+use crate::{
+    client::Client,
+    plugin::DynPlugin,
+    types::{ToClient, data},
+};
 pub use once_cell;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -116,20 +121,29 @@ impl Server {
 
         // The main req/res loop
         loop {
-            let req = client.read()?;
+            match client.read()? {
+                Some(req) => {
+                    println!("Request: {:?}", req);
+                    for plugin in self.plugins.lock().unwrap().iter_mut() {
+                        plugin.on_request(&req, self);
+                    }
 
-            for plugin in self.plugins.lock().unwrap().iter_mut() {
-                plugin.on_request(&req, self);
-            }
+                    for c in self.clients.lock().unwrap().iter() {
+                        if c == &client {
+                            self.wrap_err(
+                                &client,
+                                c.send(ToClient::Message(data::Message {
+                                    from: format!("Server"),
+                                    contents: format!("Hello"),
+                                })),
+                            )?;
+                        }
+                    }
+                }
 
-            if req.is_close() {
-                self.clients.lock().unwrap().remove(&client);
-                break;
-            }
-
-            for c in self.clients.lock().unwrap().iter() {
-                if c != &client {
-                    self.wrap_err(&client, c.send(req.clone()))?;
+                None => {
+                    self.clients.lock().unwrap().remove(&client);
+                    break;
                 }
             }
         }
