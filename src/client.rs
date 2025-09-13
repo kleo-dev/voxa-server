@@ -7,7 +7,7 @@ use std::{
 use anyhow::Error;
 use tungstenite::{Message, Utf8Bytes, WebSocket, accept};
 
-use crate::types::{ClientMessage, ServerMessage, WsMessage};
+use crate::types::{ClientMessage, ServerMessage, WsMessage, data::ResponseError};
 
 #[derive(Clone)]
 pub struct Client(Arc<Mutex<WebSocket<TcpStream>>>);
@@ -18,7 +18,7 @@ impl Client {
     }
 
     pub fn new_tcp(ws: TcpStream) -> crate::Result<Self> {
-        Ok(Self(Arc::new(Mutex::new(accept(ws)?))))
+        Ok(Self::new_ws(accept(ws)?))
     }
 }
 
@@ -42,7 +42,7 @@ impl Client {
             Message::Text(t) => {
                 let v = t.to_string();
                 match serde_json::from_str(&v) {
-                    Ok(f) => Ok(Some(WsMessage::FromClient(f))),
+                    Ok(f) => Ok(Some(WsMessage::Message(f))),
                     Err(_) => Ok(Some(WsMessage::String(v))),
                 }
             }
@@ -56,6 +56,14 @@ impl Client {
     }
 
     pub fn send(&self, m: ServerMessage) -> crate::Result<()> {
+        self.0
+            .lock()
+            .unwrap()
+            .send(Message::Text(Utf8Bytes::from(serde_json::to_string(&m)?)))
+            .map_err(|e| e.into())
+    }
+
+    pub fn send_err(&self, m: ResponseError) -> crate::Result<()> {
         self.0
             .lock()
             .unwrap()

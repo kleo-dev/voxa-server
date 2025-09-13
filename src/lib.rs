@@ -124,13 +124,13 @@ impl Server {
         // The main req/res loop
         loop {
             match client.read()? {
-                Some(WsMessage::FromClient(req)) => match req {
+                Some(WsMessage::Message(req)) => match req {
                     ClientMessage::SendMessage {
                         channel_id,
                         contents,
                     } => {
                         Self::LOGGER.info(format!("SendMessage to {channel_id}: {contents}"));
-                        self.wrap_err(
+                        let msg = self.wrap_err(
                             &client,
                             self.db.messages_db.insert(
                                 &channel_id,
@@ -138,6 +138,11 @@ impl Server {
                                 &contents,
                                 chrono::Utc::now().timestamp(),
                             ),
+                        )?;
+
+                        self.wrap_err(
+                            &client,
+                            client.send(types::ServerMessage::MessageCreate(msg)),
                         )?;
                     }
 

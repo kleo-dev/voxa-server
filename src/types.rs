@@ -33,7 +33,7 @@ pub enum ServerMessage {
     Authenticated { user_id: String },
 
     /// Error responses
-    Error { message: String },
+    Error(),
 
     /// A new message in a channel
     MessageCreate(data::Message),
@@ -57,7 +57,7 @@ pub enum ServerMessage {
 /// WebSocket wrapper
 #[derive(Debug, Clone)]
 pub enum WsMessage<T: Serialize + for<'de> Deserialize<'de>> {
-    FromClient(T),
+    Message(T),
     Binary(Bytes),
     String(String),
 }
@@ -68,8 +68,8 @@ pub mod data {
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Message {
-        pub id: String,
-        pub channel_id: u8,
+        pub id: i64,
+        pub channel_id: String,
         pub from: String,
         pub contents: String,
         pub timestamp: i64,
@@ -87,5 +87,14 @@ pub mod data {
     pub enum ChannelKind {
         Text,
         Voice,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(tag = "error", rename_all = "snake_case")]
+    pub enum ResponseError {
+        InvalidRequest { message: String },
+        Unauthorized { message: String },
+        NotFound { message: String },
+        InternalError { message: String },
     }
 }
