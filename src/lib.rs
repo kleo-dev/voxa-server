@@ -116,7 +116,7 @@ impl Server {
     fn handle_client(self: &Arc<Self>, stream: TcpStream) -> anyhow::Result<()> {
         Self::LOGGER.info(format!("New connection: {}", stream.peer_addr()?));
         // Initialize client
-        let client = Client::new_tcp(stream)?;
+        let client = Client::new(stream)?;
 
         // Insert to the set of all connected clients
         self.clients.lock().unwrap().insert(client.clone());

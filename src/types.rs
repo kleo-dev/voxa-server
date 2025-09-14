@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use tungstenite::Bytes;
 
 /// Messages sent *from the client* (user’s app) to the server
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -58,7 +57,7 @@ pub enum ServerMessage {
 #[derive(Debug, Clone)]
 pub enum WsMessage<T: Serialize + for<'de> Deserialize<'de>> {
     Message(T),
-    Binary(Bytes),
+    Binary(Vec<u8>),
     String(String),
 }
 
