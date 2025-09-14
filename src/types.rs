@@ -29,10 +29,16 @@ pub enum ClientMessage {
 #[serde(tag = "type", content = "params", rename_all = "snake_case")]
 pub enum ServerMessage {
     /// Successful authentication
-    Authenticated { user_id: String },
+    Authenticated {
+        user_id: String,
+    },
 
     /// Error responses
     Error(),
+
+    TempMessage {
+        message: String,
+    },
 
     /// A new message in a channel
     MessageCreate(data::Message),
@@ -47,10 +53,16 @@ pub enum ServerMessage {
     },
 
     /// Presence updates
-    PresenceUpdate { user_id: String, status: String },
+    PresenceUpdate {
+        user_id: String,
+        status: String,
+    },
 
     /// Typing indicator
-    Typing { user_id: String, channel_id: String },
+    Typing {
+        user_id: String,
+        channel_id: String,
+    },
 }
 
 /// WebSocket wrapper

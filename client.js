@@ -19,7 +19,7 @@ ws.onmessage = (event) => {
 
 function sendMessage(message) {
     ws.send(JSON.stringify({ type: 'send_message', params: {
-        channel_id: 'Hello',
+        channel_id: 'general',
         contents: message
     }}));
 }

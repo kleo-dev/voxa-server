@@ -2,7 +2,7 @@ use std::path::Path;
 
 use libloading::{Library, Symbol};
 
-use crate::{logger, plugin::DynPlugin, vfs};
+use crate::{logger, utils::plugin::DynPlugin, utils::vfs};
 
 logger! {
     const LOGGER "Loader"

@@ -5,23 +5,16 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub mod client;
-pub mod database;
-#[cfg(feature = "loader")]
-pub mod loader;
-pub mod logger;
 pub mod macros;
-pub mod plugin;
 pub mod types;
-pub mod vfs;
+pub mod utils;
 
 pub use anyhow::Result;
-pub use tungstenite;
 
 use crate::{
-    client::Client,
-    plugin::DynPlugin,
     types::{ClientMessage, WsMessage},
+    utils::client::Client,
+    utils::plugin::DynPlugin,
 };
 pub use once_cell;
 
@@ -37,7 +30,7 @@ pub struct Server {
     config: ServerConfig,
     plugins: Mutex<Vec<DynPlugin>>,
     clients: Mutex<HashSet<Client>>,
-    pub db: database::Database,
+    pub db: utils::database::Database,
 }
 
 impl Default for ServerConfig {
@@ -64,7 +57,7 @@ impl Server {
 
     pub fn new_config(root: &Path, config: ServerConfig) -> Arc<Self> {
         Arc::new(Self {
-            db: database::Database::new(&config).unwrap(),
+            db: utils::database::Database::new(&config).unwrap(),
             plugins: Mutex::new(Vec::new()),
             root: root.to_path_buf(),
             config,
@@ -75,7 +68,7 @@ impl Server {
     pub fn run(self: &Arc<Self>) -> Result<()> {
         // Load plugins
         #[cfg(feature = "loader")]
-        loader::load_plugins(
+        utils::loader::load_plugins(
             &mut *self.plugins.lock().unwrap(),
             &self.root.join("./plugins"),
         )?;
@@ -122,8 +115,17 @@ impl Server {
         self.clients.lock().unwrap().insert(client.clone());
 
         // The main req/res loop
-        loop {
-            match client.read()? {
+        'outer: loop {
+            let req = client.read()?;
+            if let Some(r) = &req {
+                for p in self.plugins.lock().unwrap().iter_mut() {
+                    if p.on_request(r, &client, self) {
+                        continue 'outer;
+                    }
+                }
+            }
+
+            match req {
                 Some(WsMessage::Message(req)) => match req {
                     ClientMessage::SendMessage {
                         channel_id,
