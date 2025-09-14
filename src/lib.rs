@@ -140,10 +140,12 @@ impl Server {
                             ),
                         )?;
 
-                        self.wrap_err(
-                            &client,
-                            client.send(types::ServerMessage::MessageCreate(msg)),
-                        )?;
+                        for c in self.clients.lock().unwrap().iter() {
+                            self.wrap_err(
+                                &c,
+                                c.send(types::ServerMessage::MessageCreate(msg.clone())),
+                            )?;
+                        }
                     }
 
                     ClientMessage::EditMessage {
