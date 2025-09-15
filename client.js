@@ -9,6 +9,8 @@ const ws = new WebSocket('ws://localhost:7080');
 
 ws.onopen = () => {
     console.log('WebSocket connection established');
+    console.log('Initializing handshake');
+    ws.send(JSON.stringify({ version: '0.0.1', auth_token: '<placeholder>' }))
 };
 
 ws.onmessage = (event) => {

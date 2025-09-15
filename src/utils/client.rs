@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::anyhow;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::types::{ClientMessage, WsMessage};
 
@@ -196,7 +196,9 @@ impl Client {
     /// - Ok(Some(WsMessage)) on an application message (text/binary)
     /// - Ok(None) if the connection should be closed (close received / read EOF)
     /// - Err on protocol or IO errors.
-    pub fn read(&self) -> crate::Result<Option<WsMessage<ClientMessage>>> {
+    pub fn read_t<T: Serialize + for<'de> Deserialize<'de>>(
+        &self,
+    ) -> crate::Result<Option<WsMessage<T>>> {
         let mut stream = self.0.try_clone()?;
 
         let mut message_payload = Vec::new();
@@ -310,6 +312,16 @@ impl Client {
         };
 
         Ok(Some(message))
+    }
+
+    /// Read a full WebSocket message, handling fragmentation and control frames.
+    ///
+    /// Returns:
+    /// - Ok(Some(WsMessage)) on an application message (text/binary)
+    /// - Ok(None) if the connection should be closed (close received / read EOF)
+    /// - Err on protocol or IO errors.
+    pub fn read(&self) -> crate::Result<Option<WsMessage<ClientMessage>>> {
+        self.read_t()
     }
 }
 

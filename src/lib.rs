@@ -17,6 +17,8 @@ pub use once_cell;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct ServerConfig {
+    server_name: String,
+    server_id: String,
     port: u16,
     channels: Vec<types::data::Channel>,
 }
@@ -34,6 +36,8 @@ impl Default for ServerConfig {
     fn default() -> Self {
         Self {
             port: 7080,
+            server_name: format!("Server Name"),
+            server_id: format!("offline-server"),
             channels: Vec::new(),
         }
     }
@@ -107,6 +111,37 @@ impl Server {
         Self::LOGGER.info(format!("New connection: {}", stream.peer_addr()?));
         // Initialize client
         let client = Client::new(stream)?;
+
+        // Initialize handshake
+        self.wrap_err(
+            &client,
+            client.send(types::handshake::ServerDetails {
+                name: self.config.server_name.clone(),
+                id: self.config.server_id.clone(),
+                version: format!("0.0.1"),
+            }),
+        )?;
+
+        match self.wrap_err(&client, client.read_t::<types::handshake::ClientDetails>())? {
+            Some(types::WsMessage::Message(_)) => {
+                // Do auth stuff
+                self.wrap_err(
+                    &client,
+                    client.send(types::ServerMessage::Authenticated {
+                        user_id: format!("<placeholder>"),
+                    }),
+                )?;
+            }
+            Some(_) => {
+                self.wrap_err(
+                    &client,
+                    client.send(types::ResponseError::InvalidHandshake(format!(
+                        "Invalid handshake"
+                    ))),
+                )?;
+            }
+            None => {}
+        }
 
         // Insert to the set of all connected clients
         self.clients.lock().unwrap().insert(client.clone());

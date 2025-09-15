@@ -17,9 +17,7 @@ pub enum ClientMessage {
     },
 
     /// Delete a message (if allowed)
-    DeleteMessage {
-        message_id: usize,
-    },
+    DeleteMessage { message_id: usize },
 }
 
 /// Messages sent *from the server* to the client
@@ -27,9 +25,7 @@ pub enum ClientMessage {
 #[serde(tag = "type", content = "params", rename_all = "snake_case")]
 pub enum ServerMessage {
     /// Successful authentication
-    Authenticated {
-        user_id: String,
-    },
+    Authenticated { user_id: String },
 
     TempMessage {
         message: String,
@@ -58,6 +54,16 @@ pub enum ServerMessage {
         user_id: String,
         channel_id: String,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "error", content = "message", rename_all = "snake_case")]
+pub enum ResponseError {
+    InvalidRequest(String),
+    InvalidHandshake(String),
+    Unauthorized(String),
+    NotFound(String),
+    InternalError(String),
 }
 
 /// WebSocket wrapper
@@ -94,13 +100,21 @@ pub mod data {
         Text,
         Voice,
     }
+}
+
+pub mod handshake {
+    use serde::{Deserialize, Serialize};
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(tag = "error", content = "message", rename_all = "snake_case")]
-    pub enum ResponseError {
-        InvalidRequest(String),
-        Unauthorized(String),
-        NotFound(String),
-        InternalError(String),
+    pub struct ServerDetails {
+        pub version: String,
+        pub name: String,
+        pub id: String,
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct ClientDetails {
+        pub version: String,
+        pub auth_token: String,
     }
 }

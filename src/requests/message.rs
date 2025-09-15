@@ -15,7 +15,7 @@ pub fn send(
     if contents.is_empty() {
         server.wrap_err(
             &client,
-            client.send(types::data::ResponseError::InvalidRequest(format!(
+            client.send(types::ResponseError::InvalidRequest(format!(
                 "Invalid message: empty message"
             ))),
         )?;
