@@ -5,23 +5,22 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-pub mod client;
-#[cfg(feature = "loader")]
-pub mod loader;
-pub mod logger;
 pub mod macros;
-pub mod plugin;
-pub mod vfs;
+pub mod requests;
+pub mod types;
+pub mod utils;
 
 pub use anyhow::Result;
-pub use tungstenite;
 
-use crate::{client::Client, plugin::DynPlugin};
+use crate::{utils::client::Client, utils::plugin::DynPlugin};
 pub use once_cell;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct ServerConfig {
+    server_name: String,
+    server_id: String,
     port: u16,
+    channels: Vec<types::data::Channel>,
 }
 
 #[allow(dead_code)]
@@ -30,11 +29,17 @@ pub struct Server {
     config: ServerConfig,
     plugins: Mutex<Vec<DynPlugin>>,
     clients: Mutex<HashSet<Client>>,
+    pub db: utils::database::Database,
 }
 
 impl Default for ServerConfig {
     fn default() -> Self {
-        Self { port: 7080 }
+        Self {
+            port: 7080,
+            server_name: format!("Server Name"),
+            server_id: format!("offline-server"),
+            channels: Vec::new(),
+        }
     }
 }
 
@@ -48,16 +53,12 @@ impl Server {
     logger!(LOGGER "Server");
 
     pub fn new(root: &Path) -> Arc<Self> {
-        Arc::new(Self {
-            plugins: Mutex::new(Vec::new()),
-            root: root.to_path_buf(),
-            config: ServerConfig::default(),
-            clients: Mutex::new(HashSet::new()),
-        })
+        Self::new_config(root, ServerConfig::default())
     }
 
     pub fn new_config(root: &Path, config: ServerConfig) -> Arc<Self> {
         Arc::new(Self {
+            db: utils::database::Database::new(&config).unwrap(),
             plugins: Mutex::new(Vec::new()),
             root: root.to_path_buf(),
             config,
@@ -68,7 +69,7 @@ impl Server {
     pub fn run(self: &Arc<Self>) -> Result<()> {
         // Load plugins
         #[cfg(feature = "loader")]
-        loader::load_plugins(
+        utils::loader::load_plugins(
             &mut *self.plugins.lock().unwrap(),
             &self.root.join("./plugins"),
         )?;
@@ -109,32 +110,55 @@ impl Server {
     fn handle_client(self: &Arc<Self>, stream: TcpStream) -> anyhow::Result<()> {
         Self::LOGGER.info(format!("New connection: {}", stream.peer_addr()?));
         // Initialize client
-        let client = Client::new_tcp(stream)?;
+        let client = Client::new(stream)?;
+
+        // Initialize handshake
+        self.wrap_err(
+            &client,
+            client.send(types::handshake::ServerDetails {
+                name: self.config.server_name.clone(),
+                id: self.config.server_id.clone(),
+                version: format!("0.0.1"),
+            }),
+        )?;
+
+        match self.wrap_err(&client, client.read_t::<types::handshake::ClientDetails>())? {
+            Some(types::WsMessage::Message(_)) => {
+                // Do auth stuff
+                self.wrap_err(
+                    &client,
+                    client.send(types::ServerMessage::Authenticated {
+                        user_id: format!("<placeholder>"),
+                    }),
+                )?;
+            }
+            Some(_) => {
+                self.wrap_err(
+                    &client,
+                    client.send(types::ResponseError::InvalidHandshake(format!(
+                        "Invalid handshake"
+                    ))),
+                )?;
+            }
+            None => {}
+        }
 
         // Insert to the set of all connected clients
         self.clients.lock().unwrap().insert(client.clone());
 
         // The main req/res loop
-        loop {
+        'outer: loop {
             let req = client.read()?;
-
-            for plugin in self.plugins.lock().unwrap().iter_mut() {
-                plugin.on_request(&req, self);
-            }
-
-            if req.is_close() {
-                self.clients.lock().unwrap().remove(&client);
-                break;
-            }
-
-            for c in self.clients.lock().unwrap().iter() {
-                if c != &client {
-                    self.wrap_err(&client, c.send(req.clone()))?;
+            if let Some(r) = &req {
+                for p in self.plugins.lock().unwrap().iter_mut() {
+                    if p.on_request(r, &client, self) {
+                        continue 'outer;
+                    }
                 }
+
+                self.call_request(r, &client)?;
             }
         }
-
-        Ok(())
     }
 
     /// When there is a error it removes the client

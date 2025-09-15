@@ -2,3 +2,4 @@ target/
 plugins/
 config.json
 /Cargo.lock
+*.db
