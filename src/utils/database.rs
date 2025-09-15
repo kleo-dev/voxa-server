@@ -1,42 +1,33 @@
 use crate::{ServerConfig, types::data::Message};
 use rusqlite::{Connection, Result, params};
 
-pub struct Database {
-    pub messages_db: MessagesDb,
-}
+pub struct Database(pub Connection);
 
+// General use case
 impl Database {
-    pub fn new(config: &ServerConfig) -> Option<Self> {
+    pub fn new(_config: &ServerConfig) -> Option<Self> {
         let conn = Connection::open("main.db").ok()?;
-        let messages_db = MessagesDb(conn);
-        messages_db.init(config)?;
-        Some(Self { messages_db })
-    }
-}
 
-unsafe impl Send for Database {}
-unsafe impl Sync for Database {}
-
-pub struct MessagesDb(pub Connection);
-
-impl MessagesDb {
-    pub fn init(&self, _config: &ServerConfig) -> Option<usize> {
-        self.0
-            .execute(
-                "CREATE TABLE IF NOT EXISTS chat (
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS chat (
                   id          INTEGER PRIMARY KEY AUTOINCREMENT,
                   channel_id  TEXT NOT NULL,
                   user_id     TEXT NOT NULL,
                   contents    TEXT NOT NULL,
                   timestamp   INTEGER NOT NULL
                 )",
-                [],
-            )
-            .ok()
-    }
+            [],
+        )
+        .ok()?;
 
+        Some(Database(conn))
+    }
+}
+
+// For chat messages
+impl Database {
     /// Insert a message into the DB
-    pub fn insert(
+    pub fn insert_message(
         &self,
         channel_id: &str,
         user_id: &str,
@@ -61,7 +52,7 @@ impl MessagesDb {
     }
 
     /// Get a message by its ID
-    pub fn get_by_id(&self, message_id: usize) -> Result<Option<Message>> {
+    pub fn get_message_by_id(&self, message_id: usize) -> Result<Option<Message>> {
         let mut stmt = self.0.prepare(
             "SELECT id, channel_id, user_id, contents, timestamp
          FROM chat
@@ -91,3 +82,6 @@ impl MessagesDb {
         Ok(None)
     }
 }
+
+unsafe impl Send for Database {}
+unsafe impl Sync for Database {}

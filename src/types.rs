@@ -12,15 +12,13 @@ pub enum ClientMessage {
 
     /// Edit a message (if allowed)
     EditMessage {
-        channel_id: String,
-        message_id: String,
+        message_id: usize,
         new_contents: String,
     },
 
     /// Delete a message (if allowed)
     DeleteMessage {
-        channel_id: String,
-        message_id: String,
+        message_id: usize,
     },
 }
 
@@ -46,7 +44,7 @@ pub enum ServerMessage {
     /// A message was deleted
     MessageDelete {
         channel_id: String,
-        message_id: String,
+        message_id: usize,
     },
 
     /// Presence updates

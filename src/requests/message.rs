@@ -24,7 +24,7 @@ pub fn send(
 
     let msg = server.wrap_err(
         &client,
-        server.db.messages_db.insert(
+        server.db.insert_message(
             &channel_id,
             "idk",
             &contents,
@@ -42,22 +42,14 @@ pub fn send(
 pub fn edit(
     _server: &Arc<Server>,
     _client: &Client,
-    channel_id: &str,
-    message_id: &str,
+    message_id: usize,
     new_contents: &str,
 ) -> crate::Result<()> {
-    LOGGER.info(format!(
-        "EditMessage {message_id} in {channel_id}: {new_contents}"
-    ));
+    LOGGER.info(format!("EditMessage {message_id}: {new_contents}"));
     Ok(())
 }
 
-pub fn delete(
-    _server: &Arc<Server>,
-    _client: &Client,
-    channel_id: &str,
-    message_id: &str,
-) -> crate::Result<()> {
-    LOGGER.info(format!("DeleteMessage {message_id} in {channel_id}"));
+pub fn delete(_server: &Arc<Server>, _client: &Client, message_id: usize) -> crate::Result<()> {
+    LOGGER.info(format!("DeleteMessage {message_id}"));
     Ok(())
 }

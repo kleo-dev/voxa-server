@@ -24,15 +24,13 @@ impl Server {
                 }
 
                 ClientMessage::EditMessage {
-                    channel_id,
                     message_id,
                     new_contents,
-                } => message::edit(self, client, channel_id, message_id, new_contents)?,
+                } => message::edit(self, client, *message_id, new_contents)?,
 
-                ClientMessage::DeleteMessage {
-                    channel_id,
-                    message_id,
-                } => message::delete(self, client, channel_id, message_id)?,
+                ClientMessage::DeleteMessage { message_id } => {
+                    message::delete(self, client, *message_id)?
+                }
             },
 
             WsMessage::Binary(b) => {
