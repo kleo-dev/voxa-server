@@ -6,16 +6,13 @@ use std::{
 };
 
 pub mod macros;
+pub mod requests;
 pub mod types;
 pub mod utils;
 
 pub use anyhow::Result;
 
-use crate::{
-    types::{ClientMessage, WsMessage},
-    utils::client::Client,
-    utils::plugin::DynPlugin,
-};
+use crate::{utils::client::Client, utils::plugin::DynPlugin};
 pub use once_cell;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -123,67 +120,10 @@ impl Server {
                         continue 'outer;
                     }
                 }
-            }
 
-            match req {
-                Some(WsMessage::Message(req)) => match req {
-                    ClientMessage::SendMessage {
-                        channel_id,
-                        contents,
-                    } => {
-                        Self::LOGGER.info(format!("SendMessage to {channel_id}: {contents}"));
-                        let msg = self.wrap_err(
-                            &client,
-                            self.db.messages_db.insert(
-                                &channel_id,
-                                "idk",
-                                &contents,
-                                chrono::Utc::now().timestamp(),
-                            ),
-                        )?;
-
-                        for c in self.clients.lock().unwrap().iter() {
-                            self.wrap_err(
-                                &c,
-                                c.send(types::ServerMessage::MessageCreate(msg.clone())),
-                            )?;
-                        }
-                    }
-
-                    ClientMessage::EditMessage {
-                        channel_id,
-                        message_id,
-                        new_contents,
-                    } => {
-                        Self::LOGGER.info(format!(
-                            "EditMessage {message_id} in {channel_id}: {new_contents}"
-                        ));
-                    }
-
-                    ClientMessage::DeleteMessage {
-                        channel_id,
-                        message_id,
-                    } => {
-                        Self::LOGGER.info(format!("DeleteMessage {message_id} in {channel_id}"));
-                    }
-                },
-
-                Some(WsMessage::Binary(b)) => {
-                    Self::LOGGER.info(format!("Binary message: {b:?}"));
-                }
-
-                Some(WsMessage::String(s)) => {
-                    Self::LOGGER.info(format!("String message: {s}"));
-                }
-
-                None => {
-                    self.clients.lock().unwrap().remove(&client);
-                    break;
-                }
+                self.call_request(r, &client)?;
             }
         }
-
-        Ok(())
     }
 
     /// When there is a error it removes the client

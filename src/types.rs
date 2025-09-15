@@ -33,9 +33,6 @@ pub enum ServerMessage {
         user_id: String,
     },
 
-    /// Error responses
-    Error(),
-
     TempMessage {
         message: String,
     },
@@ -101,11 +98,11 @@ pub mod data {
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    #[serde(tag = "error", rename_all = "snake_case")]
+    #[serde(tag = "error", content = "message", rename_all = "snake_case")]
     pub enum ResponseError {
-        InvalidRequest { message: String },
-        Unauthorized { message: String },
-        NotFound { message: String },
-        InternalError { message: String },
+        InvalidRequest(String),
+        Unauthorized(String),
+        NotFound(String),
+        InternalError(String),
     }
 }
