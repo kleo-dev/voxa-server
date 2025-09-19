@@ -25,7 +25,9 @@ pub enum ClientMessage {
 #[serde(tag = "type", content = "params", rename_all = "snake_case")]
 pub enum ServerMessage {
     /// Successful authentication
-    Authenticated { user_id: String },
+    Authenticated {
+        uuid: u32,
+    },
 
     TempMessage {
         message: String,
@@ -82,7 +84,7 @@ pub mod data {
     pub struct Message {
         pub id: i64,
         pub channel_id: String,
-        pub from: String,
+        pub from: u32,
         pub contents: String,
         pub timestamp: i64,
     }

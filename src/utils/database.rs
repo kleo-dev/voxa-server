@@ -1,7 +1,7 @@
 use crate::{ServerConfig, types::data::Message};
 use rusqlite::{Connection, Result, params};
 
-pub struct Database(pub Connection);
+pub struct Database(Connection);
 
 // General use case
 impl Database {
@@ -30,13 +30,13 @@ impl Database {
     pub fn insert_message(
         &self,
         channel_id: &str,
-        user_id: &str,
+        user_id: u32,
         contents: &str,
         timestamp: i64,
     ) -> Result<Message> {
         self.0.execute(
             "INSERT INTO chat (channel_id, user_id, contents, timestamp)
-         VALUES (?1, ?2, ?3, ?4)",
+            VALUES (?1, ?2, ?3, ?4)",
             params![channel_id, user_id, contents, timestamp],
         )?;
 
@@ -45,10 +45,31 @@ impl Database {
         Ok(Message {
             id,
             channel_id: channel_id.to_string(),
-            from: user_id.to_string(),
+            from: user_id,
             contents: contents.to_string(),
             timestamp,
         })
+    }
+
+    /// Delete a message from the DB
+    pub fn delete_message(&self, message_id: usize) -> Result<()> {
+        self.0
+            .execute("DELETE FROM chat WHERE id = ?1;", params![message_id])?;
+
+        Ok(())
+    }
+
+    /// Delete a message from the DB
+    pub fn edit_message(&self, message_id: usize, contents: &str) -> Result<()> {
+        self.0.execute(
+            "UPDATE table_name
+                SET contents = ?2
+                WHERE id = ?1;
+                ",
+            params![message_id, contents],
+        )?;
+
+        Ok(())
     }
 
     /// Get a message by its ID
@@ -63,7 +84,7 @@ impl Database {
             Ok((
                 row.get::<_, i64>(0)?,    // id
                 row.get::<_, String>(1)?, // channel_id
-                row.get::<_, String>(2)?, // user_id
+                row.get::<_, u32>(2)?,    // user_id
                 row.get::<_, String>(3)?, // contents
                 row.get::<_, i64>(4)?,    // timestamp
             ))

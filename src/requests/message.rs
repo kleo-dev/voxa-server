@@ -26,7 +26,7 @@ pub fn send(
         &client,
         server.db.insert_message(
             &channel_id,
-            "idk",
+            client.get_uuid()?,
             &contents,
             chrono::Utc::now().timestamp(),
         ),

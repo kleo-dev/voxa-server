@@ -5,6 +5,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+pub mod auth;
 pub mod macros;
 pub mod requests;
 pub mod types;
@@ -110,7 +111,7 @@ impl Server {
     fn handle_client(self: &Arc<Self>, stream: TcpStream) -> anyhow::Result<()> {
         Self::LOGGER.info(format!("New connection: {}", stream.peer_addr()?));
         // Initialize client
-        let client = Client::new(stream)?;
+        let mut client = Client::new(stream)?;
 
         // Initialize handshake
         self.wrap_err(
@@ -123,13 +124,14 @@ impl Server {
         )?;
 
         match self.wrap_err(&client, client.read_t::<types::handshake::ClientDetails>())? {
-            Some(types::WsMessage::Message(_)) => {
-                // Do auth stuff
+            Some(types::WsMessage::Message(types::handshake::ClientDetails {
+                auth_token, ..
+            })) => {
+                let auth_res = auth::auth(self, &mut client, &auth_token);
+                let uuid = self.wrap_err(&client, auth_res)?;
                 self.wrap_err(
                     &client,
-                    client.send(types::ServerMessage::Authenticated {
-                        user_id: format!("<placeholder>"),
-                    }),
+                    client.send(types::ServerMessage::Authenticated { uuid }),
                 )?;
             }
             Some(_) => {

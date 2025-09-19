@@ -100,13 +100,13 @@ pub mod handshake {
     }
 }
 
-pub struct Client(pub TcpStream);
+pub struct Client(TcpStream, Option<u32>);
 
 impl Client {
     /// Create a client with no timeouts
     pub fn new(mut stream: TcpStream) -> crate::Result<Self> {
         handshake::handle_websocket_handshake(&mut stream)?;
-        Ok(Client(stream))
+        Ok(Client(stream, None))
     }
 
     /// Create a client and set read/write timeouts (useful in prod)
@@ -122,7 +122,7 @@ impl Client {
             stream.set_write_timeout(Some(t))?;
         }
         handshake::handle_websocket_handshake(&mut stream)?;
-        Ok(Client(stream))
+        Ok(Client(stream, None))
     }
 
     /// Send a close frame and flush. `code` is a WebSocket close code (e.g., 1000 normal).
@@ -323,11 +323,19 @@ impl Client {
     pub fn read(&self) -> crate::Result<Option<WsMessage<ClientMessage>>> {
         self.read_t()
     }
+
+    pub fn get_uuid(&self) -> crate::Result<u32> {
+        self.1.ok_or(anyhow!("Invalid UUID"))
+    }
+
+    pub fn set_uuid(&mut self, uuid: u32) {
+        self.1 = Some(uuid)
+    }
 }
 
 impl Clone for Client {
     fn clone(&self) -> Self {
-        Client(self.0.try_clone().expect("failed to clone TcpStream"))
+        Client(self.0.try_clone().expect("failed to clone TcpStream"), None)
     }
 }
 
