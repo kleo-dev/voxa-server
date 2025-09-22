@@ -341,7 +341,7 @@ impl Clone for Client {
 
 impl PartialEq for Client {
     fn eq(&self, other: &Self) -> bool {
-        self.0.peer_addr().unwrap() == other.0.peer_addr().unwrap()
+        self.0.peer_addr().unwrap_or(self.0.local_addr().unwrap()) == other.0.peer_addr().unwrap_or(other.0.local_addr().unwrap())
     }
 }
 
@@ -349,6 +349,9 @@ impl Eq for Client {}
 
 impl Hash for Client {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.peer_addr().unwrap().hash(state);
+        self.0
+            .peer_addr()
+            .unwrap_or(self.0.local_addr().unwrap())
+            .hash(state);
     }
 }

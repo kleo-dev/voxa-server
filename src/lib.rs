@@ -89,7 +89,8 @@ impl Server {
                 Ok(stream) => {
                     std::thread::spawn({
                         let srv = self.clone();
-                        move || match srv.handle_client(stream) {
+                        let client = srv.init_client(stream)?;
+                        move || match srv.wrap_err(&client, srv.handle_client(&client)) {
                             Ok(_) => {}
                             Err(e) => Self::LOGGER.error(format!("Client handler failed: {e}")),
                         }
@@ -108,7 +109,7 @@ impl Server {
         self.plugins.lock().unwrap().push(plugin);
     }
 
-    fn handle_client(self: &Arc<Self>, stream: TcpStream) -> anyhow::Result<()> {
+    fn init_client(self: &Arc<Self>, stream: TcpStream) -> anyhow::Result<Client> {
         Self::LOGGER.info(format!("New connection: {}", stream.peer_addr()?));
         // Initialize client
         let mut client = Client::new(stream)?;
@@ -125,20 +126,29 @@ impl Server {
 
         match self.wrap_err(&client, client.read_t::<types::handshake::ClientDetails>())? {
             Some(types::WsMessage::Message(types::handshake::ClientDetails {
-                auth_token, ..
+                auth_token,
+                last_message,
+                ..
             })) => {
                 let auth_res = auth::auth(self, &mut client, &auth_token);
                 let uuid = self.wrap_err(&client, auth_res)?;
                 self.wrap_err(
                     &client,
-                    client.send(types::ServerMessage::Authenticated { uuid }),
+                    client.send(types::ServerMessage::Authenticated {
+                        uuid,
+                        messages: if let Some(i) = last_message {
+                            self.wrap_err(&client, self.db.get_messages_after_id(i))?
+                        } else {
+                            self.wrap_err(&client, self.db.get_messages_after_id(0))?
+                        },
+                    }),
                 )?;
             }
-            Some(_) => {
+            Some(v) => {
                 self.wrap_err(
                     &client,
                     client.send(types::ResponseError::InvalidHandshake(format!(
-                        "Invalid handshake"
+                        "Invalid handshake: {v:?}"
                     ))),
                 )?;
             }
@@ -148,29 +158,37 @@ impl Server {
         // Insert to the set of all connected clients
         self.clients.lock().unwrap().insert(client.clone());
 
+        Ok(client)
+    }
+
+    fn handle_client(self: &Arc<Self>, client: &Client) -> anyhow::Result<()> {
         // The main req/res loop
         'outer: loop {
             let req = client.read()?;
             if let Some(r) = &req {
                 for p in self.plugins.lock().unwrap().iter_mut() {
-                    if p.on_request(r, &client, self) {
+                    if p.on_request(r, client, self) {
                         continue 'outer;
                     }
                 }
 
-                self.call_request(r, &client)?;
+                self.wrap_err(&client, self.call_request(r, &client))?;
             }
         }
     }
 
     /// When there is a error it removes the client
-    pub fn wrap_err<T, E>(
+    pub fn wrap_err<T, E: std::fmt::Display>(
         self: &Arc<Self>,
         client: &Client,
         res: std::result::Result<T, E>,
     ) -> std::result::Result<T, E> {
-        if res.is_err() {
+        if let Err(e) = &res {
             self.clients.lock().unwrap().remove(&client);
+            if client
+                .send(types::ResponseError::InternalError(e.to_string()))
+                .is_err()
+            {}
         }
 
         res

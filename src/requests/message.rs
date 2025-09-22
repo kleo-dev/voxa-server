@@ -13,27 +13,31 @@ pub fn send(
     LOGGER.info(format!("SendMessage to {channel_id}: {contents}"));
 
     if contents.is_empty() {
-        server.wrap_err(
-            &client,
-            client.send(types::ResponseError::InvalidRequest(format!(
-                "Invalid message: empty message"
-            ))),
-        )?;
+        client.send(types::ResponseError::InvalidRequest(format!(
+            "Invalid message: empty message"
+        )))?;
+
         return Ok(());
     }
 
-    let msg = server.wrap_err(
-        &client,
-        server.db.insert_message(
-            &channel_id,
-            client.get_uuid()?,
-            &contents,
-            chrono::Utc::now().timestamp(),
-        ),
+    let msg = server.db.insert_message(
+        &channel_id,
+        client.get_uuid()?,
+        &contents,
+        chrono::Utc::now().timestamp(),
     )?;
 
+    let server = server.clone();
+
     for c in server.clients.lock().unwrap().iter() {
-        server.wrap_err(&c, c.send(types::ServerMessage::MessageCreate(msg.clone())))?;
+        let c = c.clone();
+        let server = server.clone();
+        let msg = msg.clone();
+        std::thread::spawn(move || {
+            server
+                .wrap_err(&c, c.send(types::ServerMessage::MessageCreate(msg)))
+                .expect("Failed to broadcast");
+        });
     }
 
     Ok(())

@@ -27,6 +27,7 @@ pub enum ServerMessage {
     /// Successful authentication
     Authenticated {
         uuid: u32,
+        messages: Vec<data::Message>,
     },
 
     TempMessage {
@@ -118,5 +119,6 @@ pub mod handshake {
     pub struct ClientDetails {
         pub version: String,
         pub auth_token: String,
+        pub last_message: Option<usize>,
     }
 }
