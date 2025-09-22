@@ -1,7 +1,7 @@
 use std::{
     hash::{Hash, Hasher},
     io::{self, Read, Write},
-    net::TcpStream,
+    net::{SocketAddr, TcpStream},
     time::Duration,
 };
 
@@ -331,6 +331,10 @@ impl Client {
     pub fn set_uuid(&mut self, uuid: u32) {
         self.1 = Some(uuid)
     }
+
+    pub fn addr(&self) -> crate::Result<SocketAddr> {
+        Ok(self.0.peer_addr().unwrap_or(self.0.local_addr()?))
+    }
 }
 
 impl Clone for Client {
@@ -341,7 +345,7 @@ impl Clone for Client {
 
 impl PartialEq for Client {
     fn eq(&self, other: &Self) -> bool {
-        self.0.peer_addr().unwrap_or(self.0.local_addr().unwrap()) == other.0.peer_addr().unwrap_or(other.0.local_addr().unwrap())
+        self.addr().unwrap() == other.addr().unwrap()
     }
 }
 
@@ -349,9 +353,6 @@ impl Eq for Client {}
 
 impl Hash for Client {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0
-            .peer_addr()
-            .unwrap_or(self.0.local_addr().unwrap())
-            .hash(state);
+        self.addr().unwrap().hash(state);
     }
 }
