@@ -11,6 +11,7 @@ pub mod requests;
 pub mod types;
 pub mod utils;
 
+pub use anyhow::Context as ErrorContext;
 pub use anyhow::Result;
 
 use crate::{utils::client::Client, utils::plugin::DynPlugin};
@@ -89,10 +90,18 @@ impl Server {
                 Ok(stream) => {
                     std::thread::spawn({
                         let srv = self.clone();
-                        let client = srv.init_client(stream)?;
-                        move || match srv.wrap_err(&client, srv.handle_client(&client)) {
-                            Ok(_) => {}
-                            Err(e) => Self::LOGGER.error(format!("Client handler failed: {e}")),
+
+                        move || {
+                            let Some(client) = Self::LOGGER
+                                .extract(srv.init_client(stream), "Failed to initialize client")
+                            else {
+                                return;
+                            };
+
+                            Self::LOGGER.extract(
+                                srv.wrap_err(&client, srv.handle_client(&client)),
+                                "Client handler failed",
+                            );
                         }
                     });
                 }
