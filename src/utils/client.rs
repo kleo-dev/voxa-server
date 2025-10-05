@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use crate::types::{ClientMessage, WsMessage};
 
 pub mod handshake {
-    use base64::Engine;
     use base64::engine::general_purpose::STANDARD as Base64;
+    use base64::Engine;
     use sha1::{Digest, Sha1};
     use std::collections::HashMap;
     use std::io::{BufRead, BufReader, Write};
@@ -100,13 +100,13 @@ pub mod handshake {
     }
 }
 
-pub struct Client(TcpStream, Option<u32>);
+pub struct Client(TcpStream, Option<u32>, u64);
 
 impl Client {
     /// Create a client with no timeouts
     pub fn new(mut stream: TcpStream) -> crate::Result<Self> {
         handshake::handle_websocket_handshake(&mut stream)?;
-        Ok(Client(stream, None))
+        Ok(Client(stream, None, rand::random()))
     }
 
     /// Create a client and set read/write timeouts (useful in prod)
@@ -122,7 +122,7 @@ impl Client {
             stream.set_write_timeout(Some(t))?;
         }
         handshake::handle_websocket_handshake(&mut stream)?;
-        Ok(Client(stream, None))
+        Ok(Client(stream, None, rand::random()))
     }
 
     /// Send a close frame and flush. `code` is a WebSocket close code (e.g., 1000 normal).
@@ -332,6 +332,7 @@ impl Client {
         self.1 = Some(uuid)
     }
 
+    #[deprecated]
     pub fn addr(&self) -> crate::Result<SocketAddr> {
         Ok(self.0.peer_addr().unwrap_or(self.0.local_addr()?))
     }
@@ -339,13 +340,17 @@ impl Client {
 
 impl Clone for Client {
     fn clone(&self) -> Self {
-        Client(self.0.try_clone().expect("failed to clone TcpStream"), None)
+        Client(
+            self.0.try_clone().expect("failed to clone TcpStream"),
+            self.1.clone(),
+            self.2.clone(),
+        )
     }
 }
 
 impl PartialEq for Client {
     fn eq(&self, other: &Self) -> bool {
-        self.addr().unwrap() == other.addr().unwrap()
+        self.2 == other.2
     }
 }
 
@@ -353,6 +358,6 @@ impl Eq for Client {}
 
 impl Hash for Client {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.addr().unwrap().hash(state);
+        self.2.hash(state);
     }
 }
