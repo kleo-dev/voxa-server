@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use crate::{
     Server,
-    types::{ClientMessage, WsMessage},
+    types::message::{ClientMessage, WsMessage},
     utils::client::Client,
 };
 

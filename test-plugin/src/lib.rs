@@ -15,24 +15,24 @@ impl Plugin for MyPlugin {
 
     fn on_request(
         &mut self,
-        msg: &voxa_server::types::WsMessage<voxa_server::types::ClientMessage>,
+        msg: &voxa_server::types::message::WsMessage<voxa_server::types::message::ClientMessage>,
         client: &voxa_server::utils::client::Client,
         _server: &Arc<Server>,
     ) -> bool {
         LOGGER.info(&format!("Received message: {:?}", msg));
         match msg {
-            voxa_server::types::WsMessage::Message(
-                voxa_server::types::ClientMessage::SendMessage { contents, .. },
+            voxa_server::types::message::WsMessage::Message(
+                voxa_server::types::message::ClientMessage::SendMessage { contents, .. },
             ) => {
                 if contents == "ping" {
                     LOGGER.info("Pong!");
                     // client
-                    //     .send(voxa_server::types::ServerMessage::TempMessage {
+                    //     .send(voxa_server::types::message::ServerMessage::TempMessage {
                     //         message: "pong".to_string(),
                     //     })
                     //     .unwrap();
                     client
-                        .send(voxa_server::types::ServerMessage::TempMessage {
+                        .send(voxa_server::types::message::ServerMessage::TempMessage {
                             message: "pong".to_string(),
                         })
                         .unwrap();

@@ -13,7 +13,7 @@ pub fn send(
     LOGGER.info(format!("SendMessage to {channel_id}: {contents}"));
 
     if contents.is_empty() {
-        client.send(types::ResponseError::InvalidRequest(format!(
+        client.send(types::message::ResponseError::InvalidRequest(format!(
             "Invalid message: empty message"
         )))?;
 
@@ -35,7 +35,10 @@ pub fn send(
         let msg = msg.clone();
         std::thread::spawn(move || {
             server
-                .wrap_err(&c, c.send(types::ServerMessage::MessageCreate(msg)))
+                .wrap_err(
+                    &c,
+                    c.send(types::message::ServerMessage::MessageCreate(msg)),
+                )
                 .expect("Failed to broadcast");
         });
     }

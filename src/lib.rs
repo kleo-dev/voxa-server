@@ -134,7 +134,7 @@ impl Server {
         )?;
 
         match self.wrap_err(&client, client.read_t::<types::handshake::ClientDetails>())? {
-            Some(types::WsMessage::Message(types::handshake::ClientDetails {
+            Some(types::message::WsMessage::Message(types::handshake::ClientDetails {
                 auth_token,
                 last_message,
                 ..
@@ -143,7 +143,7 @@ impl Server {
                 let uuid = self.wrap_err(&client, auth_res)?;
                 self.wrap_err(
                     &client,
-                    client.send(types::ServerMessage::Authenticated {
+                    client.send(types::message::ServerMessage::Authenticated {
                         uuid,
                         messages: if let Some(i) = last_message {
                             self.wrap_err(&client, self.db.get_messages_after_id(i))?
@@ -156,7 +156,7 @@ impl Server {
             Some(v) => {
                 self.wrap_err(
                     &client,
-                    client.send(types::ResponseError::InvalidHandshake(format!(
+                    client.send(types::message::ResponseError::InvalidHandshake(format!(
                         "Invalid handshake: {v:?}"
                     ))),
                 )?;
@@ -195,7 +195,7 @@ impl Server {
         if let Err(e) = &res {
             self.clients.lock().unwrap().remove(&client);
             if client
-                .send(types::ResponseError::InternalError(e.to_string()))
+                .send(types::message::ResponseError::InternalError(e.to_string()))
                 .is_err()
             {}
         }

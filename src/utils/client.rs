@@ -8,7 +8,7 @@ use std::{
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
-use crate::types::{ClientMessage, WsMessage};
+use crate::types::message::{ClientMessage, WsMessage};
 
 pub mod handshake {
     use base64::Engine;

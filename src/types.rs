@@ -1,82 +1,3 @@
-use serde::{Deserialize, Serialize};
-
-/// Messages sent *from the client* (user’s app) to the server
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "params", rename_all = "snake_case")]
-pub enum ClientMessage {
-    /// Send a message to a channel
-    SendMessage {
-        channel_id: String,
-        contents: String,
-    },
-
-    /// Edit a message (if allowed)
-    EditMessage {
-        message_id: usize,
-        new_contents: String,
-    },
-
-    /// Delete a message (if allowed)
-    DeleteMessage { message_id: usize },
-}
-
-/// Messages sent *from the server* to the client
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "params", rename_all = "snake_case")]
-pub enum ServerMessage {
-    /// Successful authentication
-    Authenticated {
-        uuid: Author,
-        messages: Vec<data::Message>,
-    },
-
-    TempMessage {
-        message: String,
-    },
-
-    /// A new message in a channel
-    MessageCreate(data::Message),
-
-    /// A message was edited
-    MessageUpdate(data::Message),
-
-    /// A message was deleted
-    MessageDelete {
-        channel_id: String,
-        message_id: usize,
-    },
-
-    /// Presence updates
-    PresenceUpdate {
-        user_id: Author,
-        status: String,
-    },
-
-    /// Typing indicator
-    Typing {
-        user_id: Author,
-        channel_id: String,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "error", content = "message", rename_all = "snake_case")]
-pub enum ResponseError {
-    InvalidRequest(String),
-    InvalidHandshake(String),
-    Unauthorized(String),
-    NotFound(String),
-    InternalError(String),
-}
-
-/// WebSocket wrapper
-#[derive(Debug, Clone)]
-pub enum WsMessage<T: Serialize + for<'de> Deserialize<'de>> {
-    Message(T),
-    Binary(Vec<u8>),
-    String(String),
-}
-
 pub type Author = String;
 
 /// Shared data structures
@@ -124,5 +45,88 @@ pub mod handshake {
         pub version: String,
         pub auth_token: String,
         pub last_message: Option<usize>,
+    }
+}
+
+pub mod message {
+    use serde::{Deserialize, Serialize};
+
+    use crate::types::{Author, data};
+
+    /// Messages sent *from the client* (user’s app) to the server
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(tag = "type", content = "params", rename_all = "snake_case")]
+    pub enum ClientMessage {
+        /// Send a message to a channel
+        SendMessage {
+            channel_id: String,
+            contents: String,
+        },
+
+        /// Edit a message (if allowed)
+        EditMessage {
+            message_id: usize,
+            new_contents: String,
+        },
+
+        /// Delete a message (if allowed)
+        DeleteMessage { message_id: usize },
+    }
+
+    /// Messages sent *from the server* to the client
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(tag = "type", content = "params", rename_all = "snake_case")]
+    pub enum ServerMessage {
+        /// Successful authentication
+        Authenticated {
+            uuid: Author,
+            messages: Vec<data::Message>,
+        },
+
+        TempMessage {
+            message: String,
+        },
+
+        /// A new message in a channel
+        MessageCreate(data::Message),
+
+        /// A message was edited
+        MessageUpdate(data::Message),
+
+        /// A message was deleted
+        MessageDelete {
+            channel_id: String,
+            message_id: usize,
+        },
+
+        /// Presence updates
+        PresenceUpdate {
+            user_id: Author,
+            status: String,
+        },
+
+        /// Typing indicator
+        Typing {
+            user_id: Author,
+            channel_id: String,
+        },
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    #[serde(tag = "error", content = "message", rename_all = "snake_case")]
+    pub enum ResponseError {
+        InvalidRequest(String),
+        InvalidHandshake(String),
+        Unauthorized(String),
+        NotFound(String),
+        InternalError(String),
+    }
+
+    /// WebSocket wrapper
+    #[derive(Debug, Clone)]
+    pub enum WsMessage<T: Serialize + for<'de> Deserialize<'de>> {
+        Message(T),
+        Binary(Vec<u8>),
+        String(String),
     }
 }
