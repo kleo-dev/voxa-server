@@ -26,6 +26,11 @@ impl Plugin for MyPlugin {
             ) => {
                 if contents == "ping" {
                     LOGGER.info("Pong!");
+                    // client
+                    //     .send(voxa_server::types::ServerMessage::TempMessage {
+                    //         message: "pong".to_string(),
+                    //     })
+                    //     .unwrap();
                     client
                         .send(voxa_server::types::ServerMessage::TempMessage {
                             message: "pong".to_string(),

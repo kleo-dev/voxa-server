@@ -26,7 +26,7 @@ pub enum ClientMessage {
 pub enum ServerMessage {
     /// Successful authentication
     Authenticated {
-        uuid: u32,
+        uuid: Author,
         messages: Vec<data::Message>,
     },
 
@@ -48,13 +48,13 @@ pub enum ServerMessage {
 
     /// Presence updates
     PresenceUpdate {
-        user_id: String,
+        user_id: Author,
         status: String,
     },
 
     /// Typing indicator
     Typing {
-        user_id: String,
+        user_id: Author,
         channel_id: String,
     },
 }
@@ -77,15 +77,19 @@ pub enum WsMessage<T: Serialize + for<'de> Deserialize<'de>> {
     String(String),
 }
 
+pub type Author = String;
+
 /// Shared data structures
 pub mod data {
     use serde::{Deserialize, Serialize};
+
+    use crate::types::Author;
 
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct Message {
         pub id: i64,
         pub channel_id: String,
-        pub from: u32,
+        pub from: Author,
         pub contents: String,
         pub timestamp: i64,
     }

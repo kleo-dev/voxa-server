@@ -22,7 +22,7 @@ pub fn send(
 
     let msg = server.db.insert_message(
         &channel_id,
-        client.get_uuid()?,
+        &client.get_uuid()?,
         &contents,
         chrono::Utc::now().timestamp(),
     )?;
