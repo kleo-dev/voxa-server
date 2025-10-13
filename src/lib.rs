@@ -19,10 +19,11 @@ pub use once_cell;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct ServerConfig {
-    server_name: String,
-    server_id: String,
-    port: u16,
-    channels: Vec<types::data::Channel>,
+    pub server_name: String,
+    pub server_id: String,
+    pub server_key: String,
+    pub port: u16,
+    pub channels: Vec<types::data::Channel>,
 }
 
 #[allow(dead_code)]
@@ -40,6 +41,7 @@ impl Default for ServerConfig {
             port: 7080,
             server_name: format!("Server Name"),
             server_id: format!("offline-server"),
+            server_key: format!(""),
             channels: Vec::new(),
         }
     }
