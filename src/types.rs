@@ -33,11 +33,14 @@ pub mod data {
 pub mod handshake {
     use serde::{Deserialize, Serialize};
 
+    use crate::types::data::Channel;
+
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct ServerDetails {
         pub version: String,
         pub name: String,
         pub id: String,
+        pub channels: Vec<Channel>,
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize)]

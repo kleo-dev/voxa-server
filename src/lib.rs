@@ -132,6 +132,7 @@ impl Server {
                 name: self.config.server_name.clone(),
                 id: self.config.server_id.clone(),
                 version: format!("0.0.1"),
+                channels: self.config.channels.clone(),
             }),
         )?;
 
