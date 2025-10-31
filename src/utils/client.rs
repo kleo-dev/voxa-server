@@ -2,7 +2,6 @@ use std::{
     hash::{Hash, Hasher},
     io::{self, Read, Write},
     net::{SocketAddr, TcpStream},
-    time::Duration,
 };
 
 use anyhow::anyhow;
@@ -125,25 +124,11 @@ pub mod handshake {
 pub struct Client(TcpStream, Option<String>, u64);
 
 impl Client {
-    /// Create a client with no timeouts
+    /// Create a client
     pub fn new(mut stream: TcpStream) -> crate::Result<Self> {
         handshake::handle_websocket_handshake(&mut stream)?;
-        Ok(Client(stream, None, rand::random()))
-    }
-
-    /// Create a client and set read/write timeouts (useful in prod)
-    pub fn with_timeouts(
-        mut stream: TcpStream,
-        read_timeout: Option<Duration>,
-        write_timeout: Option<Duration>,
-    ) -> crate::Result<Self> {
-        if let Some(t) = read_timeout {
-            stream.set_read_timeout(Some(t))?;
-        }
-        if let Some(t) = write_timeout {
-            stream.set_write_timeout(Some(t))?;
-        }
-        handshake::handle_websocket_handshake(&mut stream)?;
+        stream.set_read_timeout(Some(std::time::Duration::from_secs(10)))?;
+        stream.set_write_timeout(Some(std::time::Duration::from_secs(10)))?;
         Ok(Client(stream, None, rand::random()))
     }
 
@@ -169,18 +154,20 @@ impl Client {
         Ok(())
     }
 
-    /// Send a pong with given payload (control frames must be <=125)
-    fn send_pong(&self, payload: &[u8]) -> crate::Result<()> {
+    /// Send a ping (no payload)
+    fn send_ping(&self) -> crate::Result<()> {
         let mut stream = self.0.try_clone()?;
+        // FIN + opcode (ping = 0x89), payload length = 0x00
+        stream.write_all(&[0x89, 0x00])?;
+        stream.flush()?;
+        Ok(())
+    }
 
-        if payload.len() > 125 {
-            return Err(anyhow!("pong payload too long").into());
-        }
-        let mut frame = Vec::with_capacity(2 + payload.len());
-        frame.push(0x8A); // FIN=1, opcode=0xA (Pong)
-        frame.push(payload.len() as u8);
-        frame.extend_from_slice(payload);
-        stream.write_all(&frame)?;
+    /// Send a pong (no payload)
+    fn send_pong(&self) -> crate::Result<()> {
+        let mut stream = self.0.try_clone()?;
+        // FIN + opcode (pong = 0x8A), payload length = 0x00
+        stream.write_all(&[0x8A, 0x00])?;
         stream.flush()?;
         Ok(())
     }
@@ -229,9 +216,14 @@ impl Client {
             // read the 2-byte header
             let mut header = [0u8; 2];
             if let Err(e) = stream.read_exact(&mut header) {
+                if e.kind() == io::ErrorKind::WouldBlock || e.kind() == io::ErrorKind::TimedOut {
+                    self.send_ping()?;
+                    continue;
+                }
+
                 if e.kind() == io::ErrorKind::UnexpectedEof || e.kind() == io::ErrorKind::BrokenPipe
                 {
-                    return Ok(None); // treat EOF as closed
+                    return Ok(None);
                 }
                 return Err(e.into());
             }
@@ -287,9 +279,9 @@ impl Client {
                     // Continuation / Text / Binary
                     message_payload.extend(payload);
                     if fin {
-                        break; // got full message
+                        break;
                     } else {
-                        continue; // wait for more fragments
+                        continue;
                     }
                 }
                 0x8 => {
@@ -309,12 +301,10 @@ impl Client {
                     return Ok(None);
                 }
                 0x9 => {
-                    // Ping → respond with Pong
-                    let _ = self.send_pong(&payload);
+                    self.send_pong()?;
                     continue;
                 }
                 0xA => {
-                    // Pong → ignore
                     continue;
                 }
                 _ => {
