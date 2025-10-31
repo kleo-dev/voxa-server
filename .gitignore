@@ -3,3 +3,4 @@ plugins/
 config.json
 /Cargo.lock
 *.db
+*.env

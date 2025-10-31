@@ -25,13 +25,26 @@ pub mod handshake {
         let mut request_line = String::new();
         reader.read_line(&mut request_line)?;
 
+        // Trim CRLF to make sure comparisons are clean
+        let request_line = request_line.trim_end();
+
+        // Allow HEAD (used by Render for health checks)
+        if request_line.starts_with("HEAD") {
+            let response = "HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n";
+            stream.write_all(response.as_bytes())?;
+            stream.flush()?;
+            return Ok(());
+        }
+
+        // Only proceed if it’s a GET
         if !request_line.starts_with("GET") {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                "Invalid HTTP method",
+                format!("Invalid HTTP method: {request_line}"),
             ));
         }
 
+        // Read headers
         let mut headers = HashMap::new();
         let mut line = String::new();
         loop {
@@ -45,17 +58,22 @@ pub mod handshake {
             }
         }
 
-        let key = headers.get("sec-websocket-key").ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing Sec-WebSocket-Key")
-        })?;
+        // Check if it's actually a WebSocket upgrade request
+        let is_websocket_upgrade = headers
+            .get("upgrade")
+            .map(|v| v.eq_ignore_ascii_case("websocket"))
+            .unwrap_or(false);
 
-        if headers.get("upgrade").map(|v| v.to_lowercase()) != Some("websocket".to_string()) {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Missing or invalid Upgrade header",
-            ));
+        if !is_websocket_upgrade {
+            // Not a WebSocket request — probably a normal HTTP GET (e.g. health check)
+            let response =
+                "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 2\r\n\r\nOK";
+            stream.write_all(response.as_bytes())?;
+            stream.flush()?;
+            return Ok(());
         }
 
+        // Validate "Connection: Upgrade"
         if !headers
             .get("connection")
             .map(|v| v.to_lowercase().contains("upgrade"))
@@ -67,12 +85,17 @@ pub mod handshake {
             ));
         }
 
-        // Optional: validate Sec-WebSocket-Version == 13 (most common)
+        // Validate WebSocket key
+        let key = headers.get("sec-websocket-key").ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::InvalidData, "Missing Sec-WebSocket-Key")
+        })?;
+
+        // Validate version
         if let Some(ver) = headers.get("sec-websocket-version") {
             if ver.trim() != "13" {
                 return Err(std::io::Error::new(
                     std::io::ErrorKind::InvalidData,
-                    "Unsupported Sec-WebSocket-Version",
+                    format!("Unsupported Sec-WebSocket-Version: {}", ver),
                 ));
             }
         }
@@ -84,13 +107,12 @@ pub mod handshake {
         let hash = hasher.finalize();
         let accept_key = Base64.encode(hash);
 
-        // Note: include Sec-WebSocket-Protocol handling if you support subprotocols
+        // Send response
         let response = format!(
             "HTTP/1.1 101 Switching Protocols\r\n\
              Upgrade: websocket\r\n\
              Connection: Upgrade\r\n\
-             Sec-WebSocket-Accept: {}\r\n\
-             Sec-WebSocket-Version: 13\r\n\r\n",
+             Sec-WebSocket-Accept: {}\r\n\r\n",
             accept_key
         );
 
