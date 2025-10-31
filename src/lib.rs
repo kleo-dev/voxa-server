@@ -2,7 +2,6 @@ use std::{
     collections::HashSet,
     net::{TcpListener, TcpStream},
     path::{Path, PathBuf},
-    str::FromStr,
     sync::{Arc, Mutex},
 };
 
@@ -51,6 +50,10 @@ impl Default for ServerConfig {
 impl ServerConfig {
     pub fn build(self, root: &Path) -> Arc<Server> {
         Server::new_config(root, self)
+    }
+
+    pub fn from_str(s: &str) -> std::result::Result<Self, serde_json::Error> {
+        serde_json::from_str(s)
     }
 }
 
@@ -205,12 +208,5 @@ impl Server {
         }
 
         res
-    }
-}
-
-impl FromStr for ServerConfig {
-    type Err = serde_json::Error;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        serde_json::from_str(s)
     }
 }
